@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScamReports Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #1E1E1E; 
+            color: white; 
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #2C2C2E;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .badge-pending {
+            background-color: #f59e0b;
+            color: #1e1e1e;
+        }
+        .badge-approved {
+            background-color: #10b981;
+            color: #1e1e1e;
+        }
+    </style>
+</head>
+<body class="bg-[#1E1E1E] text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-500">ScamReports.info</h1>
+            <p class="text-xl text-gray-400 mt-2">Admin Panel</p>
+        </header>
+
+        <div class="max-w-4xl mx-auto">
+            <!-- Login Form (Shown if not logged in) -->
+            <div id="loginForm" class="bg-gray-800 p-6 rounded-lg max-w-md mx-auto">
+                <h2 class="text-2xl mb-4 text-blue-400">Admin Login</h2>
+                <div id="loginError" class="bg-red-900 text-white p-3 rounded mb-4 hidden"></div>
+                <form id="loginFormContent">
+                    <div class="mb-4">
+                        <label class="block mb-2">Username</label>
+                        <input type="text" name="username" required 
+                            class="w-full p-2 bg-gray-700 rounded">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block mb-2">Password</label>
+                        <input type="password" name="password" required 
+                            class="w-full p-2 bg-gray-700 rounded">
+                    </div>
+                    <button type="submit" 
+                        class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
+                        Login
+                    </button>
+                </form>
+            </div>
+
+            <!-- Admin Panel (Shown if logged in) -->
+            <div id="adminPanel" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl text-blue-400">Manage Scam Reports</h2>
+                    <button id="logoutBtn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                        Logout
+                    </button>
+                </div>
+
+                <!-- Message Display -->
+                <div id="message" class="bg-green-900 text-white p-3 rounded mb-4 hidden"></div>
+
+                <!-- Edit Report Form -->
+                <div id="editReportForm" class="bg-gray-800 p-6 rounded-lg mb-8 hidden">
+                    <h3 class="text-xl mb-4 text-blue-400">Edit Report</h3>
+                    <form id="editReportFormContent">
+                        <input type="hidden" name="report_id" id="editReportId">
+                        <div class="mb-4">
+                            <label class="block mb-2">Scammer's Username</label>
+                            <input type="text" name="scammerUsername" required 
+                                class="w-full p-2 bg-gray-700 rounded">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block mb-2">Money Lost</label>
+                            <input type="number" name="moneyLost" step="0.01"
+                                class="w-full p-2 bg-gray-700 rounded">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block mb-2">Description</label>
+                            <textarea name="description" required 
+                                class="w-full p-2 bg-gray-700 rounded" rows="4"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="approved" class="mr-2">
+                                Approve this report (will be visible on the public page)
+                            </label>
+                        </div>
+                        <div id="currentImages" class="mb-4"></div>
+                        <div class="mb-4">
+                            <label class="block mb-2">Add New Images</label>
+                            <input type="file" name="proofImages[]" multiple 
+                                class="w-full p-2 bg-gray-700 rounded">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button type="submit" 
+                                class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
+                                Update Report
+                            </button>
+                            <button type="button" id="cancelEditBtn" 
+                                class="w-full bg-gray-600 text-white p-2 rounded hover:bg-gray-700">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Reports List -->
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl mb-4 text-blue-400">All Reports</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="bg-gray-700">
+                                    <th class="p-2 text-left">ID</th>
+                                    <th class="p-2 text-left">Username</th>
+                                    <th class="p-2 text-left">Money Lost</th>
+                                    <th class="p-2 text-left">Date</th>
+                                    <th class="p-2 text-left">Status</th>
+                                    <th class="p-2 text-left">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody">
+                                <tr>
+                                    <td colspan="6" class="p-4 text-center text-gray-400">Loading reports...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Local storage keys
+        const REPORTS_KEY = 'scamReports';
+        const ADMIN_CREDENTIALS_KEY = 'adminCredentials';
+
+        // Admin credentials (for demo purposes)
+        const adminCredentials = {
+            username: 'admin',
+            password: '1337' // Change this to a strong password
+        };
+
+        // Initialize local storage
+        if (!localStorage.getItem(ADMIN_CREDENTIALS_KEY)) {
+            localStorage.setItem(ADMIN_CREDENTIALS_KEY, JSON.stringify(adminCredentials));
+        }
+
+        // DOM elements
+        const loginForm = document.getElementById('loginForm');
+        const adminPanel = document.getElementById('adminPanel');
+        const loginError = document.getElementById('loginError');
+        const message = document.getElementById('message');
+        const reportsTableBody = document.getElementById('reportsTableBody');
+        const editReportForm = document.getElementById('editReportForm');
+        const editReportFormContent = document.getElementById('editReportFormContent');
+        const currentImages = document.getElementById('currentImages');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        // Check if admin is logged in
+        const isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+
+        // Show/hide login and admin panel
+        if (isLoggedIn) {
+            loginForm.classList.add('hidden');
+            adminPanel.classList.remove('hidden');
+            loadReports();
+        } else {
+            loginForm.classList.remove('hidden');
+            adminPanel.classList.add('hidden');
+        }
+
+        // Handle login
+        document.getElementById('loginFormContent').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const username = formData.get('username');
+            const password = formData.get('password');
+
+            const storedCredentials = JSON.parse(localStorage.getItem(ADMIN_CREDENTIALS_KEY));
+            if (username === storedCredentials.username && password === storedCredentials.password) {
+                localStorage.setItem('adminLoggedIn', 'true');
+                loginForm.classList.add('hidden');
+                adminPanel.classList.remove('hidden');
+                loadReports();
+            } else {
+                loginError.textContent = 'Invalid credentials';
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        // Handle logout
+        logoutBtn.addEventListener('click', () => {
+            localStorage.setItem('adminLoggedIn', 'false');
+            loginForm.classList.remove('hidden');
+            adminPanel.classList.add('hidden');
+        });
+
+        // Load reports
+        function loadReports() {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            reportsTableBody.innerHTML = '';
+
+            if (reports.length === 0) {
+                reportsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-4 text-center text-gray-400">No reports found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            reports.forEach(report => {
+                const isApproved = report.approved === true;
+                reportsTableBody.innerHTML += `
+                    <tr class="border-t border-gray-700">
+                        <td class="p-2">${report.id.substring(0, 8)}</td>
+                        <td class="p-2">${report.scammerUsername}</td>
+                        <td class="p-2">$${report.moneyLost || '0'}</td>
+                        <td class="p-2">${report.timestamp}</td>
+                        <td class="p-2">
+                            ${isApproved ? `
+                                <span class="badge badge-approved">Approved</span>
+                            ` : `
+                                <span class="badge badge-pending">Waiting for Approval</span>
+                            `}
+                        </td>
+                        <td class="p-2 flex space-x-2">
+                            <button onclick="editReport('${report.id}')" 
+                                class="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm">
+                                Edit
+                            </button>
+                            ${!isApproved ? `
+                                <button onclick="approveReport('${report.id}')" 
+                                    class="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm">
+                                    Approve
+                                </button>
+                            ` : `
+                                <button onclick="rejectReport('${report.id}')" 
+                                    class="bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700 text-sm">
+                                    Reject
+                                </button>
+                            `}
+                            <button onclick="deleteReport('${report.id}')" 
+                                class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 text-sm">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Edit report
+        function editReport(reportId) {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            const report = reports.find(r => r.id === reportId);
+            if (!report) return;
+
+            editReportForm.classList.remove('hidden');
+            document.getElementById('editReportId').value = report.id;
+            document.querySelector('input[name="scammerUsername"]').value = report.scammerUsername;
+            document.querySelector('input[name="moneyLost"]').value = report.moneyLost;
+            document.querySelector('textarea[name="description"]').value = report.description;
+            document.querySelector('input[name="approved"]').checked = report.approved;
+
+            // Display current images
+            currentImages.innerHTML = '';
+            if (report.proofImages && report.proofImages.length > 0) {
+                currentImages.innerHTML = `
+                    <label class="block mb-2">Current Images</label>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">
+                        ${report.proofImages.map(image => `
+                            <div class="relative group">
+                                <img src="${image}" class="w-full h-40 object-cover rounded">
+                                <div class="mt-1 flex items-center">
+                                    <input type="checkbox" name="delete_images[]" value="${image}" 
+                                        id="img_${image}" class="mr-2">
+                                    <label for="img_${image}" class="text-sm">Delete this image</label>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+        }
+
+        // Cancel edit
+        cancelEditBtn.addEventListener('click', () => {
+            editReportForm.classList.add('hidden');
+        });
+
+        // Update report
+        editReportFormContent.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const reportId = formData.get('report_id');
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            const reportIndex = reports.findIndex(r => r.id === reportId);
+
+            if (reportIndex === -1) return;
+
+            reports[reportIndex] = {
+                ...reports[reportIndex],
+                scammerUsername: formData.get('scammerUsername'),
+                moneyLost: formData.get('moneyLost'),
+                description: formData.get('description'),
+                approved: formData.get('approved') === 'on'
+            };
+
+            localStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+            editReportForm.classList.add('hidden');
+            showMessage('Report updated successfully');
+            loadReports();
+        });
+
+        // Approve report
+        function approveReport(reportId) {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            const reportIndex = reports.findIndex(r => r.id === reportId);
+
+            if (reportIndex === -1) return;
+
+            reports[reportIndex].approved = true;
+            localStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+            showMessage('Report approved successfully');
+            loadReports();
+        }
+
+        // Reject report
+        function rejectReport(reportId) {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            const reportIndex = reports.findIndex(r => r.id === reportId);
+
+            if (reportIndex === -1) return;
+
+            reports[reportIndex].approved = false;
+            localStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+            showMessage('Report rejected successfully');
+            loadReports();
+        }
+
+        // Delete report
+        function deleteReport(reportId) {
+            if (!confirm('Are you sure you want to delete this report?')) return;
+
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            const updatedReports = reports.filter(r => r.id !== reportId);
+            localStorage.setItem(REPORTS_KEY, JSON.stringify(updatedReports));
+            showMessage('Report deleted successfully');
+            loadReports();
+        }
+
+        // Show message
+        function showMessage(msg) {
+            message.textContent = msg;
+            message.classList.remove('hidden');
+            setTimeout(() => {
+                message.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

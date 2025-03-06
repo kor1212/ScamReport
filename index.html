@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScamReports.pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #1E1E1E; 
+            color: white; 
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 50;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #2C2C2E;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 500px;
+        }
+        .report-description {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+            line-height: 1.5;
+            max-height: none;
+            width: 100%;
+            white-space: pre-wrap;
+        }
+        .report-content {
+            position: relative;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .report-content.collapsed {
+            max-height: 100px;
+        }
+        .report-content.expanded {
+            max-height: 2000px;
+        }
+        .toggle-btn {
+            background-color: #373737;
+            border: none;
+            color: #9ca3af;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 4px;
+            font-size: 0.875rem;
+        }
+        .toggle-btn:hover {
+            background-color: #444;
+        }
+        .pending-notice {
+            background-color: #3b3b3b;
+            border-left: 4px solid #f59e0b;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body class="bg-[#1E1E1E] text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-500">ScamReports.pro</h1>
+            <p class="text-xl text-gray-400 mt-2">Community-Driven Scam Protection</p>
+        </header>
+
+        <div class="max-w-2xl mx-auto">
+            <button id="reportScamBtn" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700 mb-8">
+                Report a Scam
+            </button>
+
+            <!-- Report Modal -->
+            <div id="reportModal" class="modal">
+                <div class="modal-content">
+                    <form id="scamReportForm">
+                        <h2 class="text-2xl mb-4 text-blue-400">Submit Scam Report</h2>
+
+                        <div class="mb-4">
+                            <label class="block mb-2">Scammer's Username</label>
+                            <input type="text" name="scammerUsername" required 
+                                class="w-full p-2 bg-gray-700 rounded">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block mb-2">How Much Money Lost (Optional)</label>
+                            <input type="number" name="moneyLost" step="0.01"
+                                class="w-full p-2 bg-gray-700 rounded">
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block mb-2">Description of Scam</label>
+                            <textarea name="description" required 
+                                class="w-full p-2 bg-gray-700 rounded" rows="4"></textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="block mb-2">Proof Images (Optional)</label>
+                            <input type="file" name="proofImages" id="proofImages" multiple 
+                                class="w-full p-2 bg-gray-700 rounded">
+                            <div id="imagePreviews" class="mt-2"></div>
+                        </div>
+
+                        <div class="flex space-x-2">
+                            <button type="submit" 
+                                class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">
+                                Submit Report
+                            </button>
+                            <button type="button" id="closeModalBtn" 
+                                class="w-full bg-gray-600 text-white p-2 rounded hover:bg-gray-700">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Pending Report Notice (shown after submission) -->
+            <div id="pendingNotice" class="pending-notice hidden mb-6">
+                <p class="font-medium text-amber-400">Your report has been submitted and is waiting for approval.</p>
+                <p class="text-sm text-gray-300 mt-1">An administrator will review your report shortly. Approved reports will appear in the list below.</p>
+            </div>
+
+            <!-- Reports List -->
+            <div id="reportsList" class="mt-8">
+                <h2 class="text-2xl mb-4 text-blue-400">Recent Scam Reports</h2>
+                <div id="reportsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Local storage key for reports
+        const REPORTS_KEY = 'scamReports';
+
+        // Modal functionality
+        const reportScamBtn = document.getElementById('reportScamBtn');
+        const reportModal = document.getElementById('reportModal');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const scamReportForm = document.getElementById('scamReportForm');
+        const pendingNotice = document.getElementById('pendingNotice');
+        const reportsContainer = document.getElementById('reportsContainer');
+        const proofImagesInput = document.getElementById('proofImages');
+        const imagePreviews = document.getElementById('imagePreviews');
+
+        // Show modal
+        reportScamBtn.addEventListener('click', () => {
+            reportModal.style.display = 'block';
+        });
+
+        // Close modal
+        closeModalBtn.addEventListener('click', () => {
+            reportModal.style.display = 'none';
+            imagePreviews.innerHTML = ''; // Clear image previews
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target == reportModal) {
+                reportModal.style.display = 'none';
+                imagePreviews.innerHTML = ''; // Clear image previews
+            }
+        });
+
+        // Handle image upload preview
+        proofImagesInput.addEventListener('change', (e) => {
+            imagePreviews.innerHTML = ''; // Clear previous previews
+            const files = e.target.files;
+
+            for (const file of files) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = document.createElement('img');
+                    img.src = event.target.result;
+                    img.classList.add('image-preview');
+                    imagePreviews.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Save report to local storage
+        function saveReport(reportData) {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            reportData.id = Date.now().toString(); // Unique ID
+            reportData.timestamp = new Date().toLocaleString();
+            reportData.approved = false; // Default approval status
+            reports.push(reportData);
+            localStorage.setItem(REPORTS_KEY, JSON.stringify(reports));
+            return reportData.id;
+        }
+
+        // Get reports from local storage
+        function getReports(approvedOnly = true) {
+            const reports = JSON.parse(localStorage.getItem(REPORTS_KEY)) || [];
+            if (approvedOnly) {
+                return reports.filter(report => report.approved);
+            }
+            return reports;
+        }
+
+        // Display reports
+        function displayReports() {
+            const reports = getReports(true);
+            reportsContainer.innerHTML = '';
+
+            if (reports.length === 0) {
+                reportsContainer.innerHTML = '<div class="bg-gray-800 p-4 rounded mb-4 text-center"><p class="text-gray-400">No approved reports available yet.</p></div>';
+                return;
+            }
+
+            reports.forEach(report => {
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'bg-gray-800 p-4 rounded mb-4';
+
+                reportDiv.innerHTML = `
+                    <h3 class="text-lg font-bold text-blue-400"> Scammer: ${report.scammerUsername}</h3>
+                    ${report.moneyLost ? `<p class="text-red-400">Money Lost: $${report.moneyLost}</p>` : ''}
+                    <div class="report-content collapsed" id="report-${report.id}">
+                        <p class="text-gray-300 report-description">${report.description}</p>
+                    </div>
+                    <button class="toggle-btn" data-report="${report.id}">Read more</button>
+                    ${report.proofImages && report.proofImages.length > 0 ? `
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            ${report.proofImages.map(image => `
+                                <img src="${image}" class="image-preview">
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    <small class="text-gray-500 block mt-2">Reported on: ${report.timestamp}</small>
+                `;
+
+                reportsContainer.appendChild(reportDiv);
+            });
+
+            // Add toggle functionality
+            document.querySelectorAll('.toggle-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const reportId = this.getAttribute('data-report');
+                    const reportContent = document.getElementById(`report-${reportId}`);
+                    
+                    if (reportContent.classList.contains('collapsed')) {
+                        reportContent.classList.remove('collapsed');
+                        reportContent.classList.add('expanded');
+                        this.textContent = 'Show less';
+                    } else {
+                        reportContent.classList.remove('expanded');
+                        reportContent.classList.add('collapsed');
+                        this.textContent = 'Read more';
+                    }
+                });
+            });
+        }
+
+        // Submit report
+        scamReportForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const formData = new FormData(scamReportForm);
+            const reportData = {
+                scammerUsername: formData.get('scammerUsername'),
+                description: formData.get('description'),
+                moneyLost: formData.get('moneyLost'),
+                proofImages: []
+            };
+
+            // Handle image uploads
+            const files = proofImagesInput.files;
+            if (files.length > 0) {
+                for (const file of files) {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        reportData.proofImages.push(event.target.result); // Add Base64 image
+                        if (reportData.proofImages.length === files.length) {
+                            saveAndDisplayReport(reportData);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            } else {
+                saveAndDisplayReport(reportData);
+            }
+        });
+
+        // Save report and display it
+        function saveAndDisplayReport(reportData) {
+            const reportId = saveReport(reportData);
+
+            reportModal.style.display = 'none';
+            scamReportForm.reset();
+            imagePreviews.innerHTML = ''; // Clear image previews
+            
+            // Show pending notice
+            pendingNotice.classList.remove('hidden');
+            setTimeout(() => {
+                pendingNotice.classList.add('hidden');
+            }, 10000);
+
+            // Refresh reports
+            displayReports();
+        }
+
+        // Initial display of reports
+        displayReports();
+    </script>
+</body>
+</html>
